@@ -38,6 +38,12 @@ enum PlaybackMode: Int {
     case shuffle = 1
 }
 
+extension String {
+    var hasChinese: Bool {
+        range(of: "\\p{Han}", options: .regularExpression) != nil
+    }
+}
+
 final class PlayerViewModel: ObservableObject {
     @Published var playlists: [Playlist] = []
     @Published var currentPlaylistId: UUID?
@@ -80,7 +86,7 @@ final class PlayerViewModel: ObservableObject {
         setupRemoteTransportControls()
         
         // Initialize with default playlist
-        self.playlists = [Playlist(name: "已导入音乐", tracks: [])]
+        self.playlists = [Playlist(name: "播放列表", tracks: [])]
         self.currentPlaylistId = self.playlists.first?.id
         addTimeObserver()
         setupNotifications()
@@ -94,12 +100,46 @@ final class PlayerViewModel: ObservableObject {
     }
 
     private func setupNotifications() {
+        // Track completion
         NotificationCenter.default.publisher(for: .AVPlayerItemDidPlayToEndTime)
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.next()
             }
             .store(in: &cancellables)
+            
+        // Audio Session Interruptions (e.g. phone call)
+        NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] notification in
+                self?.handleInterruption(notification)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func handleInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        
+        switch type {
+        case .began:
+            // Pause playback when interrupted
+            // We don't change isPlaying state if we want to resume later? 
+            // Usually we just pause player but keep UI state or handle it.
+            // For simplicity:
+            player.pause()
+            // We might want to keep track if we *were* playing to resume later
+            
+        case .ended:
+            guard let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt else { return }
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+            if options.contains(.shouldResume) && isPlaying {
+                player.play()
+            }
+        @unknown default:
+            break
+        }
     }
 
     private func loadLibrary() {
@@ -209,9 +249,14 @@ final class PlayerViewModel: ObservableObject {
         updateNowPlayingInfo()
         parseCurrentLyrics()
         
-        // If lyrics are missing, try to fetch them
-        if pl.tracks[index].lyrics == nil || pl.tracks[index].lyrics?.isEmpty == true {
-            fetchLyrics(for: pl.tracks[index], playlistId: pl.id, index: index)
+        // If lyrics are missing or appear to be incorrect (e.g. Pinyin for Chinese song), try to fetch them
+        let track = pl.tracks[index]
+        let hasChineseTitle = track.title.hasChinese
+        let currentLyrics = track.lyrics ?? ""
+        let hasChineseLyrics = currentLyrics.hasChinese
+        
+        if currentLyrics.isEmpty || (hasChineseTitle && !hasChineseLyrics) {
+            fetchLyrics(for: track, playlistId: pl.id, index: index)
         }
     }
 
@@ -417,7 +462,7 @@ final class PlayerViewModel: ObservableObject {
         if !playlists.isEmpty {
             playlists[0].tracks.append(track)
         } else {
-            playlists.append(Playlist(name: "已导入音乐", tracks: [track]))
+            playlists.append(Playlist(name: "播放列表", tracks: [track]))
         }
         
         logger.log("Import success: \(track.title, privacy: .public) -> \(dest.lastPathComponent, privacy: .public)")
@@ -457,6 +502,10 @@ final class PlayerViewModel: ObservableObject {
                 let url = t.url.standardizedFileURL
                 if url.isFileURL, url.path.hasPrefix(dir.path) {
                     try? fm.removeItem(at: url)
+                    
+                    // Also delete associated lrc file if it exists
+                    let lrcUrl = url.deletingPathExtension().appendingPathExtension("lrc")
+                    try? fm.removeItem(at: lrcUrl)
                 }
             }
         }
@@ -514,26 +563,13 @@ final class PlayerViewModel: ObservableObject {
     }
     
     private func fetchLyrics(for track: Track, playlistId: UUID, index: Int) {
-        guard let encodedTitle = track.title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedArtist = track.artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return }
-        
-        let urlString = "https://lrclib.net/api/get?track_name=\(encodedTitle)&artist_name=\(encodedArtist)"
-        guard let url = URL(string: urlString) else { return }
-        
-        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self, let data = data, error == nil else { return }
+        LyricFetcher.fetch(for: track.title, artist: track.artist) { [weak self] lyrics in
+            guard let self = self, let lyrics = lyrics, !lyrics.isEmpty else { return }
             
-            do {
-                let result = try JSONDecoder().decode(LrcLibResponse.self, from: data)
-                if let lyrics = result.syncedLyrics ?? result.plainLyrics, !lyrics.isEmpty {
-                    DispatchQueue.main.async {
-                        self.saveLyrics(lyrics, for: track, playlistId: playlistId, index: index)
-                    }
-                }
-            } catch {
-                print("Failed to decode lyrics: \(error)")
+            DispatchQueue.main.async {
+                self.saveLyrics(lyrics, for: track, playlistId: playlistId, index: index)
             }
-        }.resume()
+        }
     }
     
     private func saveLyrics(_ lyrics: String, for track: Track, playlistId: UUID, index: Int) {
