@@ -210,6 +210,14 @@ final class PlayerViewModel: ObservableObject {
             }
         }
         
+        // If no embedded artwork, check for sidecar .jpg file
+        if artworkData == nil {
+            let jpgURL = url.deletingPathExtension().appendingPathExtension("jpg")
+            if let data = try? Data(contentsOf: jpgURL) {
+                artworkData = data
+            }
+        }
+        
         return Track(title: title, artist: artist, url: url, artworkData: artworkData, lyrics: lyrics)
     }
 
@@ -257,6 +265,11 @@ final class PlayerViewModel: ObservableObject {
         
         if currentLyrics.isEmpty || (hasChineseTitle && !hasChineseLyrics) {
             fetchLyrics(for: track, playlistId: pl.id, index: index)
+        }
+        
+        // If artwork is missing, try to fetch it
+        if track.artworkData == nil {
+            fetchArtwork(for: track, playlistId: pl.id, index: index)
         }
     }
 
@@ -570,6 +583,43 @@ final class PlayerViewModel: ObservableObject {
             
             DispatchQueue.main.async {
                 self.saveLyrics(lyrics, for: track, playlistId: playlistId, index: index)
+            }
+        }
+    }
+
+    private func fetchArtwork(for track: Track, playlistId: UUID, index: Int) {
+        AlbumArtFetcher.fetch(for: track.title, artist: track.artist) { [weak self] data in
+            guard let self = self, let data = data else { return }
+            
+            // Save to sidecar file
+            let jpgURL = track.url.deletingPathExtension().appendingPathExtension("jpg")
+            try? data.write(to: jpgURL)
+            
+            DispatchQueue.main.async {
+                // Update track in playlist
+                if let plIndex = self.playlists.firstIndex(where: { $0.id == playlistId }) {
+                    var tracks = self.playlists[plIndex].tracks
+                    if tracks.indices.contains(index) {
+                        let oldTrack = tracks[index]
+                        // Only update if it's the same track (id check)
+                        if oldTrack.id == track.id {
+                            let newTrack = Track(
+                                title: oldTrack.title,
+                                artist: oldTrack.artist,
+                                url: oldTrack.url,
+                                artworkData: data,
+                                lyrics: oldTrack.lyrics
+                            )
+                            tracks[index] = newTrack
+                            self.playlists[plIndex].tracks = tracks
+                            
+                            // If currently playing this track, update info
+                            if self.currentPlaylistId == playlistId && self.currentIndex == index {
+                                self.updateNowPlayingInfo()
+                            }
+                        }
+                    }
+                }
             }
         }
     }
