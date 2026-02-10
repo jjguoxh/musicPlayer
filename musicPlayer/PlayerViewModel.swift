@@ -273,6 +273,8 @@ final class PlayerViewModel: ObservableObject {
                     return
                 }
             }
+            // Ensure audio session is active before resuming
+            try? AVAudioSession.sharedInstance().setActive(true)
             player.play()
             isPlaying = true
             updateNowPlayingInfo()
