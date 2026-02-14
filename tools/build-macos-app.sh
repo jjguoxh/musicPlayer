@@ -94,3 +94,14 @@ if [ -n "${ICON_SRC}" ]; then
   cp "${ICON_SRC}" "${ICONSET_DIR}/icon_512x512@2x.png"
   iconutil -c icns "${ICONSET_DIR}" -o "${RES_DIR}/AppIcon.icns" || true
 fi
+
+# Create DMG
+DMG_DIR="${BUILD_DIR}/dmg"
+DMG_PATH="${BUILD_DIR}/${APP_NAME}.dmg"
+mkdir -p "${DMG_DIR}"
+rm -f "${DMG_PATH}"
+rm -rf "${DMG_DIR:?}/"* || true
+cp -R "${APP_DIR}" "${DMG_DIR}/"
+(cd "${DMG_DIR}" && ln -sf /Applications Applications)
+hdiutil create -volname "${APP_NAME}" -srcfolder "${DMG_DIR}" -ov -format UDZO -imagekey zlib-level=9 "${DMG_PATH}" >/dev/null
+echo "Created DMG at: ${DMG_PATH}"
