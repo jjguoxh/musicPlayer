@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import AVFoundation
 import AppKit
+import CoreFoundation
 
 struct Track: Identifiable, Equatable {
     let id = UUID()
@@ -22,6 +23,56 @@ struct LyricLine: Identifiable, Equatable {
     let id = UUID()
     let time: TimeInterval
     let text: String
+}
+
+extension String {
+    var hasChinese: Bool {
+        range(of: "\\p{Han}", options: .regularExpression) != nil
+    }
+}
+
+private func decodeBest(_ data: Data) -> String? {
+    let encs: [CFStringEncoding] = [
+        CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue),
+        CFStringEncoding(CFStringEncodings.GBK_95.rawValue),
+        CFStringEncoding(CFStringEncodings.GB_2312_80.rawValue),
+        CFStringEncoding(CFStringEncodings.big5.rawValue),
+        CFStringEncoding(CFStringEncodings.shiftJIS.rawValue)
+    ]
+    for e in encs {
+        let nsEnc = CFStringConvertEncodingToNSStringEncoding(e)
+        if let s = String(data: data, encoding: String.Encoding(rawValue: nsEnc)), s.hasChinese {
+            return s
+        }
+    }
+    if let s = String(data: data, encoding: .utf8), s.hasChinese { return s }
+    return nil
+}
+
+private func hasMojibake(_ s: String) -> Bool {
+    if s.hasChinese { return false }
+    let indicators = ["Ã", "Â", "æ", "å", "ä", "ç", "é", "è", "ê", "ð", "œ", "¢", "£", "¥", "¿", "×"]
+    return indicators.contains(where: { s.contains($0) })
+}
+
+private func fixMojibakeLatin1UTF8(_ s: String) -> String? {
+    guard let d = s.data(using: .isoLatin1) else { return nil }
+    if let r = String(data: d, encoding: .utf8), r.hasChinese { return r }
+    return nil
+}
+
+private func parseFilename(_ url: URL) -> (artist: String?, title: String?) {
+    let base = url.deletingPathExtension().lastPathComponent
+    let seps: [Character] = ["-", "—", "–", "_"]
+    for sep in seps {
+        if base.contains(sep) {
+            let parts = base.split(separator: sep, maxSplits: 1).map { String($0).trimmingCharacters(in: .whitespaces) }
+            if parts.count == 2 {
+                return (artist: parts[0], title: parts[1])
+            }
+        }
+    }
+    return (artist: nil, title: base)
 }
 
 final class PlayerViewModel: ObservableObject {
@@ -241,10 +292,23 @@ final class PlayerViewModel: ObservableObject {
         var artist = ""
         var artworkData: Data?
         var lyrics: String?
+        var titleRaw: Data?
+        var artistRaw: Data?
         for meta in asset.commonMetadata {
-            if meta.commonKey == .commonKeyTitle, let v = meta.value as? String { title = v }
-            if meta.commonKey == .commonKeyArtist, let v = meta.value as? String { artist = v }
+            if meta.commonKey == .commonKeyTitle {
+                if let v = meta.value as? String { title = v } else if let d = meta.dataValue { titleRaw = d }
+            }
+            if meta.commonKey == .commonKeyArtist {
+                if let v = meta.value as? String { artist = v } else if let d = meta.dataValue { artistRaw = d }
+            }
         }
+        if !title.hasChinese, let d = titleRaw, let s = decodeBest(d) { title = s }
+        if !artist.hasChinese, let d = artistRaw, let s = decodeBest(d) { artist = s }
+        if !title.hasChinese, hasMojibake(title), let fixed = fixMojibakeLatin1UTF8(title) { title = fixed }
+        if !artist.hasChinese, hasMojibake(artist), let fixed = fixMojibakeLatin1UTF8(artist) { artist = fixed }
+        let parsed = parseFilename(url)
+        if (artist.isEmpty || !artist.hasChinese), let a = parsed.artist, a.hasChinese { artist = a }
+        if (!title.hasChinese), let t = parsed.title, t.hasChinese { title = t }
         let allMetadata = asset.commonMetadata
             + asset.metadata(forFormat: AVMetadataFormat.id3Metadata)
             + asset.metadata(forFormat: AVMetadataFormat.iTunesMetadata)
@@ -260,7 +324,15 @@ final class PlayerViewModel: ObservableObject {
             }
             if lyrics == nil {
                 if item.identifier == .id3MetadataUnsynchronizedLyric || item.identifier == .iTunesMetadataLyrics {
-                    if let v = item.stringValue, !v.isEmpty { lyrics = v }
+                    if let v = item.stringValue, !v.isEmpty {
+                        if v.hasChinese {
+                            lyrics = v
+                        } else if let d = item.dataValue, let s = decodeBest(d) {
+                            lyrics = s
+                        } else {
+                            lyrics = v
+                        }
+                    }
                 }
             }
             if artworkData != nil && lyrics != nil { break }
@@ -269,6 +341,8 @@ final class PlayerViewModel: ObservableObject {
             let lrcURL = url.deletingPathExtension().appendingPathExtension("lrc")
             if let content = try? String(contentsOf: lrcURL, encoding: .utf8) {
                 lyrics = content
+            } else if let data = try? Data(contentsOf: lrcURL), let s = decodeBest(data) {
+                lyrics = s
             }
         }
         if artworkData == nil {
