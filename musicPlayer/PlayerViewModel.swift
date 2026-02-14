@@ -567,7 +567,17 @@ final class PlayerViewModel: ObservableObject {
         nowPlayingInfo[MPMediaItemPropertyArtist] = track.artist
         
         if let data = track.artworkData, let image = UIImage(data: data) {
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            // Check if we have a current lyric to display
+            if let idx = currentLyricIndex, parsedLyrics.indices.contains(idx) {
+                let currentLine = parsedLyrics[idx].text
+                if let lyricImage = image.withLyricsOverlay(currentLine) {
+                    nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: lyricImage.size) { _ in lyricImage }
+                } else {
+                    nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+                }
+            } else {
+                nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+            }
         }
 
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = currentTime
@@ -716,10 +726,15 @@ final class PlayerViewModel: ObservableObject {
         if let idx = parsedLyrics.lastIndex(where: { $0.time <= time }) {
             if currentLyricIndex != idx {
                 currentLyricIndex = idx
+                // Update lockscreen with new lyric line
+                updateNowPlayingInfo()
             }
         } else {
             // Before first lyric
-            currentLyricIndex = nil
+            if currentLyricIndex != nil {
+                currentLyricIndex = nil
+                updateNowPlayingInfo()
+            }
         }
     }
 }

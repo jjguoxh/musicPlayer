@@ -1,0 +1,206 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		111100012F3B000100000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111000A2F3B000100000001 /* ContentView.swift */; };
+		111100022F3B000100000001 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111000B2F3B000100000001 /* SidebarView.swift */; };
+		111100032F3B000100000001 /* PlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111000C2F3B000100000001 /* PlayerViewModel.swift */; };
+		111100042F3B000100000001 /* LyricFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111000D2F3B000100000001 /* LyricFetcher.swift */; };
+		111100052F3B000100000001 /* AlbumArtFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1111000E2F3B000100000001 /* AlbumArtFetcher.swift */; };
+		111100062F3B000100000001 /* musicPlayerMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111100092F3B000100000001 /* musicPlayerMacApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		111100072F3B000100000001 /* musicPlayerMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = musicPlayerMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		111100082F3B000100000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		111100092F3B000100000001 /* musicPlayerMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = musicPlayerMacApp.swift; sourceTree = "<group>"; };
+		1111000A2F3B000100000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1111000B2F3B000100000001 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		1111000C2F3B000100000001 /* PlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerViewModel.swift; sourceTree = "<group>"; };
+		1111000D2F3B000100000001 /* LyricFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricFetcher.swift; sourceTree = "<group>"; };
+		1111000E2F3B000100000001 /* AlbumArtFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlbumArtFetcher.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		111100112F3B000100000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1111000F2F3B000100000001 = {
+			isa = PBXGroup;
+			children = (
+				111100102F3B000100000001 /* macos */,
+				111100132F3B000100000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		111100102F3B000100000001 /* macos */ = {
+			isa = PBXGroup;
+			children = (
+				111100082F3B000100000001 /* Info.plist */,
+				111100092F3B000100000001 /* musicPlayerMacApp.swift */,
+				1111000A2F3B000100000001 /* ContentView.swift */,
+				1111000B2F3B000100000001 /* SidebarView.swift */,
+				1111000C2F3B000100000001 /* PlayerViewModel.swift */,
+				1111000D2F3B000100000001 /* LyricFetcher.swift */,
+				1111000E2F3B000100000001 /* AlbumArtFetcher.swift */,
+			);
+			path = ../macos;
+			sourceTree = "<group>";
+		};
+		111100132F3B000100000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				111100072F3B000100000001 /* musicPlayerMac.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		111100142F3B000100000001 /* musicPlayerMac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1111001A2F3B000100000001 /* Build configuration list for PBXNativeTarget "musicPlayerMac" */;
+			buildPhases = (
+				111100152F3B000100000001 /* Sources */,
+				111100112F3B000100000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = musicPlayerMac;
+			productName = musicPlayerMac;
+			productReference = 111100072F3B000100000001 /* musicPlayerMac.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		111100162F3B000100000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1400;
+				LastUpgradeCheck = 1400;
+				TargetAttributes = {
+					111100142F3B000100000001 = {
+						CreatedOnToolsVersion = 14.0;
+					};
+				};
+			};
+			buildConfigurationList = 111100172F3B000100000001 /* Build configuration list for PBXProject "musicPlayerMac" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1111000F2F3B000100000001;
+			productRefGroup = 111100132F3B000100000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				111100142F3B000100000001 /* musicPlayerMac */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		111100152F3B000100000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				111100062F3B000100000001 /* musicPlayerMacApp.swift in Sources */,
+				111100012F3B000100000001 /* ContentView.swift in Sources */,
+				111100022F3B000100000001 /* SidebarView.swift in Sources */,
+				111100032F3B000100000001 /* PlayerViewModel.swift in Sources */,
+				111100042F3B000100000001 /* LyricFetcher.swift in Sources */,
+				111100052F3B000100000001 /* AlbumArtFetcher.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		111100182F3B000100000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AC64Q45XNT;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../macos/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = guoxh.musicPlayerMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		111100192F3B000100000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = AC64Q45XNT;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ../macos/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = guoxh.musicPlayerMac;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1111001A2F3B000100000001 /* Build configuration list for PBXNativeTarget "musicPlayerMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111100182F3B000100000001 /* Debug */,
+				111100192F3B000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		111100172F3B000100000001 /* Build configuration list for PBXProject "musicPlayerMac" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				111100182F3B000100000001 /* Debug */,
+				111100192F3B000100000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 111100162F3B000100000001 /* Project object */;
+}
