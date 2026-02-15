@@ -5,24 +5,15 @@ struct LyricFetcher {
     
     /// Try to fetch lyrics from multiple sources (LrcLib -> QQMusic)
     static func fetch(for title: String, artist: String, completion: @escaping (String?) -> Void) {
-        // 1. Try LrcLib first
         fetchFromLrcLib(title: title, artist: artist) { lrcLibResult in
-            if let lrc = lrcLibResult, lrc.hasChinese {
-                print("[LyricFetcher] Found Chinese lyrics from LrcLib")
+            if let lrc = lrcLibResult, !lrc.isEmpty {
                 completion(lrc)
                 return
             }
-            
-            // 2. If LrcLib failed or returned non-Chinese (e.g. Pinyin), try QQMusic
-            print("[LyricFetcher] LrcLib missing or non-Chinese. Trying QQMusic...")
             fetchFromQQMusic(title: title, artist: artist) { qqResult in
                 if let qq = qqResult {
-                    print("[LyricFetcher] Found lyrics from QQMusic")
                     completion(qq)
                 } else {
-                    // 3. Fallback to LrcLib result even if Pinyin (better than nothing)
-                    // or return nil if strict
-                    print("[LyricFetcher] QQMusic failed. Returning LrcLib result (if any)")
                     completion(lrcLibResult)
                 }
             }
@@ -34,6 +25,8 @@ struct LyricFetcher {
     private struct LrcLibResponse: Decodable {
         let plainLyrics: String?
         let syncedLyrics: String?
+        let artistName: String?
+        let trackName: String?
     }
     
     private static func fetchFromLrcLib(title: String, artist: String, completion: @escaping (String?) -> Void) {
@@ -47,35 +40,40 @@ struct LyricFetcher {
         session.dataTask(with: url) { data, _, _ in
             guard let data = data,
                   let results = try? JSONDecoder().decode([LrcLibResponse].self, from: data),
-                  let first = results.first else {
+                  !results.isEmpty else {
                 completion(nil)
                 return
             }
-            completion(first.syncedLyrics ?? first.plainLyrics)
+            let ranked = results.map { r -> (Int, String?) in
+                var s = 0
+                if let synced = r.syncedLyrics, !synced.isEmpty { s += 100; if synced.hasChinese { s += 10 } }
+                if let plain = r.plainLyrics, !plain.isEmpty { s += 10; if plain.hasChinese { s += 5 } }
+                return (s, r.syncedLyrics ?? r.plainLyrics)
+            }.sorted { $0.0 > $1.0 }
+            completion(ranked.first?.1)
         }.resume()
     }
     
     // MARK: - QQ Music
     
     private static func fetchFromQQMusic(title: String, artist: String, completion: @escaping (String?) -> Void) {
-        // Search first
-        searchQQMusic(keyword: "\(title) \(artist)") { songMid in
-            guard let mid = songMid else {
-                // Try searching just title if artist search fails
-                searchQQMusic(keyword: title) { mid2 in
-                    guard let m2 = mid2 else { completion(nil); return }
-                    fetchQQLyric(songMid: m2, completion: completion)
+        searchQQMusicCandidates(keyword: "\(title) \(artist)", targetTitle: title, targetArtist: artist) { mids in
+            let candidates = mids.isEmpty ? [String]() : mids
+            if candidates.isEmpty {
+                searchQQMusicCandidates(keyword: title, targetTitle: title, targetArtist: artist) { mids2 in
+                    let all = mids2
+                    tryFetchQQSequential(all, idx: 0, completion: completion)
                 }
-                return
+            } else {
+                tryFetchQQSequential(candidates, idx: 0, completion: completion)
             }
-            fetchQQLyric(songMid: mid, completion: completion)
         }
     }
     
-    private static func searchQQMusic(keyword: String, completion: @escaping (String?) -> Void) {
+    private static func searchQQMusicCandidates(keyword: String, targetTitle: String, targetArtist: String, completion: @escaping ([String]) -> Void) {
         guard let encoded = keyword.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=\(encoded)&format=json") else {
-            completion(nil)
+            completion([])
             return
         }
         
@@ -84,13 +82,19 @@ struct LyricFetcher {
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let dataDict = json["data"] as? [String: Any],
                   let song = dataDict["song"] as? [String: Any],
-                  let list = song["list"] as? [[String: Any]],
-                  let first = list.first,
-                  let songmid = first["songmid"] as? String else {
-                completion(nil)
+                  let list = song["list"] as? [[String: Any]] else {
+                completion([])
                 return
             }
-            completion(songmid)
+            let ranked: [(Int, String)] = list.compactMap { item in
+                guard let mid = item["songmid"] as? String else { return nil }
+                let name = (item["songname"] as? String) ?? ""
+                let singers = (item["singer"] as? [[String: Any]]) ?? []
+                let artistNames = singers.compactMap { $0["name"] as? String }.joined(separator: " ")
+                let s = scoreQQ(title: name, artists: artistNames, targetTitle: targetTitle, targetArtist: targetArtist)
+                return (s, mid)
+            }.sorted { $0.0 > $1.0 }
+            completion(ranked.map { $0.1 })
         }.resume()
     }
     
@@ -108,9 +112,41 @@ struct LyricFetcher {
                 completion(nil)
                 return
             }
-            // QQ Music lyrics might need simple cleanup if any (usually standard LRC)
             completion(lyric)
         }.resume()
     }
+    
+    private static func tryFetchQQSequential(_ mids: [String], idx: Int, completion: @escaping (String?) -> Void) {
+        if idx >= mids.count { completion(nil); return }
+        fetchQQLyric(songMid: mids[idx]) { lyric in
+            if let l = lyric, !l.isEmpty {
+                completion(l)
+            } else {
+                tryFetchQQSequential(mids, idx: idx + 1, completion: completion)
+            }
+        }
+    }
+    
+    private static func normalize(_ s: String) -> String {
+        let filtered = s.components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted).joined()
+        let lowered = filtered.lowercased()
+        let condensed = lowered.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        return condensed.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private static func scoreQQ(title: String, artists: String, targetTitle: String, targetArtist: String) -> Int {
+        let t = normalize(targetTitle)
+        let a = normalize(targetArtist)
+        let rt = normalize(title)
+        let ra = normalize(artists)
+        var s = 0
+        if !t.isEmpty && !rt.isEmpty {
+            if t == rt { s += 50 } else if rt.contains(t) || t.contains(rt) { s += 25 }
+        }
+        if !a.isEmpty && !ra.isEmpty {
+            if a == ra { s += 50 } else if ra.contains(a) || a.contains(ra) { s += 25 }
+        }
+        if s == 0 && (!rt.isEmpty || !ra.isEmpty) { s = 1 }
+        return s
+    }
 }
-
