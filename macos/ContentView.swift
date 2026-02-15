@@ -107,22 +107,24 @@ struct ContentView: View {
                     if !vm.parsedLyrics.isEmpty {
                         ScrollViewReader { proxy in
                             ScrollView(showsIndicators: true) {
-                                VStack(alignment: .leading, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 16) {
                                     ForEach(Array(vm.parsedLyrics.enumerated()), id: \.element.id) { index, line in
                                         Text(line.text)
-                                            .font(index == vm.currentLyricIndex ? .headline : .subheadline)
+                                            .font(index == vm.currentLyricIndex ? .title2 : .title3)
                                             .foregroundStyle(index == vm.currentLyricIndex ? .primary : .secondary)
                                             .id(index)
                                             .onTapGesture { vm.seek(to: line.time) }
                                     }
                                 }
-                                .padding(.vertical, 20)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.vertical, 24)
                             }
+                            .frame(maxWidth: .infinity)
                         }
                     } else {
                         ScrollView {
                             Text(lyrics)
-                                .font(.subheadline)
+                                .font(.title3)
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }

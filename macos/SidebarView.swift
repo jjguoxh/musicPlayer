@@ -76,6 +76,11 @@ struct SidebarView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    Button("从播放列表删除") {
+                                        vm.deleteTrack(playlistId: playlist.id, index: index)
+                                    }
+                                }
                             }
                             .onDelete { offsets in
                                 vm.delete(atOffsets: offsets, fromPlaylistId: playlist.id)

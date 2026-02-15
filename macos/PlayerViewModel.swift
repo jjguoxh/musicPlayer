@@ -61,6 +61,12 @@ private func fixMojibakeLatin1UTF8(_ s: String) -> String? {
     return nil
 }
 
+private func isNumericString(_ s: String) -> Bool {
+    let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !t.isEmpty else { return false }
+    return t.unicodeScalars.allSatisfy { CharacterSet.decimalDigits.contains($0) }
+}
+
 private func parseFilename(_ url: URL) -> (artist: String?, title: String?) {
     let base = url.deletingPathExtension().lastPathComponent
     let seps: [Character] = ["-", "—", "–", "_"]
@@ -261,6 +267,34 @@ final class PlayerViewModel: ObservableObject {
         }
     }
     
+    func deleteTrack(playlistId: UUID, index: Int) {
+        if let pIdx = playlists.firstIndex(where: { $0.id == playlistId }) {
+            var pl = playlists[pIdx]
+            if pl.tracks.indices.contains(index) {
+                let t = pl.tracks.remove(at: index)
+                playlists[pIdx] = pl
+                if currentPlaylistId == playlistId && currentIndex == index {
+                    pause()
+                    player.replaceCurrentItem(with: nil)
+                    currentIndex = nil
+                    currentTime = 0
+                    duration = 0
+                }
+                if let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first {
+                    let dir = docs.appendingPathComponent("ImportedMusic", isDirectory: true)
+                    let url = t.url.standardizedFileURL
+                    if url.isFileURL, url.path.hasPrefix(dir.path) {
+                        try? fm.removeItem(at: url)
+                        let lrcUrl = url.deletingPathExtension().appendingPathExtension("lrc")
+                        try? fm.removeItem(at: lrcUrl)
+                        let jpgUrl = url.deletingPathExtension().appendingPathExtension("jpg")
+                        try? fm.removeItem(at: jpgUrl)
+                    }
+                }
+            }
+        }
+    }
+    
     func clearLibrary() {
         pause()
         player.replaceCurrentItem(with: nil)
@@ -312,6 +346,26 @@ final class PlayerViewModel: ObservableObject {
         let allMetadata = asset.commonMetadata
             + asset.metadata(forFormat: AVMetadataFormat.id3Metadata)
             + asset.metadata(forFormat: AVMetadataFormat.iTunesMetadata)
+        if isNumericString(title) || artist.isEmpty {
+            for item in allMetadata {
+                if (isNumericString(title) || !title.hasChinese) {
+                    if item.identifier == AVMetadataIdentifier.id3MetadataTitleDescription || item.identifier == AVMetadataIdentifier.iTunesMetadataSongName {
+                        if let v = item.stringValue, !v.isEmpty {
+                            if v.hasChinese { title = v }
+                            else if let d = item.dataValue, let s = decodeBest(d) { title = s }
+                        }
+                    }
+                }
+                if artist.isEmpty || !artist.hasChinese {
+                    if item.identifier == AVMetadataIdentifier.id3MetadataLeadPerformer || item.identifier == AVMetadataIdentifier.iTunesMetadataArtist {
+                        if let v = item.stringValue, !v.isEmpty {
+                            if v.hasChinese { artist = v }
+                            else if let d = item.dataValue, let s = decodeBest(d) { artist = s }
+                        }
+                    }
+                }
+            }
+        }
         for item in allMetadata {
             if artworkData == nil {
                 if item.commonKey == .commonKeyArtwork || item.identifier == .id3MetadataAttachedPicture || item.identifier == .iTunesMetadataCoverArt {
