@@ -120,6 +120,18 @@ struct ContentView: View {
                                 .padding(.vertical, 24)
                             }
                             .frame(maxWidth: .infinity)
+                            .onAppear {
+                                if let i = vm.currentLyricIndex {
+                                    proxy.scrollTo(i, anchor: .top)
+                                }
+                            }
+                            .onChange(of: vm.currentLyricIndex) { i in
+                                if let i = i {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        proxy.scrollTo(i, anchor: .top)
+                                    }
+                                }
+                            }
                         }
                     } else {
                         ScrollView {
