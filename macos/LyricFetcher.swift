@@ -10,6 +10,27 @@ enum LyricFetcher {
         }
     }
     
+    static func candidates(for title: String, artist: String, completion: @escaping ([String]) -> Void) {
+        var pool: [(Int, String)] = []
+        fetchLrcLibCandidates(title: title, artist: artist) { lrclib in
+            pool.append(contentsOf: lrclib)
+            searchQQMusicCandidates(keyword: "\(title) \(artist)", targetTitle: title, targetArtist: artist) { mids in
+                fetchQQBatch(mids: Array(mids.prefix(6)), idx: 0, acc: []) { qqLyrics in
+                    pool.append(contentsOf: qqLyrics.map { (120, $0) })
+                    var seen = Set<String>()
+                    let merged: [String] = pool.sorted { $0.0 > $1.0 }.compactMap { pair in
+                        let text = pair.1
+                        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if key.isEmpty || seen.contains(key) { return nil }
+                        seen.insert(key)
+                        return text
+                    }
+                    completion(merged)
+                }
+            }
+        }
+    }
+    
     private static func fetchFromLrcLib(title: String, artist: String, completion: @escaping (String?) -> Void) {
         guard let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
@@ -27,6 +48,32 @@ enum LyricFetcher {
                 return (s, r.syncedLyrics ?? r.plainLyrics)
             }.sorted { $0.0 > $1.0 }
             completion(ranked.first?.1)
+        }.resume()
+    }
+    
+    private static func fetchLrcLibCandidates(title: String, artist: String, completion: @escaping ([(Int, String)]) -> Void) {
+        guard let encodedTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://lrclib.net/api/search?q=\(encodedTitle)%20\(encodedArtist)") else {
+            completion([]); return
+        }
+        session.dataTask(with: url) { data, _, _ in
+            guard let data = data,
+                  let results = try? JSONDecoder().decode([LrcLibResponse].self, from: data) else { completion([]); return }
+            var arr: [(Int, String)] = []
+            for r in results {
+                if let synced = r.syncedLyrics, !synced.isEmpty {
+                    var s = 100
+                    if synced.hasChinese { s += 10 }
+                    arr.append((s, synced))
+                }
+                if let plain = r.plainLyrics, !plain.isEmpty {
+                    var s = 10
+                    if plain.hasChinese { s += 5 }
+                    arr.append((s, plain))
+                }
+            }
+            completion(arr.sorted { $0.0 > $1.0 })
         }.resume()
     }
     
@@ -83,6 +130,15 @@ enum LyricFetcher {
         fetchQQLyric(songMid: mids[idx]) { lyric in
             if let l = lyric, !l.isEmpty { completion(l) }
             else { tryFetchQQSequential(mids, idx: idx + 1, completion: completion) }
+        }
+    }
+    
+    private static func fetchQQBatch(mids: [String], idx: Int, acc: [String], completion: @escaping ([String]) -> Void) {
+        if idx >= mids.count { completion(acc); return }
+        fetchQQLyric(songMid: mids[idx]) { lyric in
+            var next = acc
+            if let l = lyric, !l.isEmpty { next.append(l) }
+            fetchQQBatch(mids: mids, idx: idx + 1, acc: next, completion: completion)
         }
     }
     

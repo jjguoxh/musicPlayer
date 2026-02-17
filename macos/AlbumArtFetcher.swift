@@ -31,6 +31,36 @@ class AlbumArtFetcher {
         }.resume()
     }
     
+    static func candidates(for title: String, artist: String, completion: @escaping ([URL]) -> Void) {
+        let term = "\(title) \(artist)"
+        guard let encodedTerm = term.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://itunes.apple.com/search?term=\(encodedTerm)&media=music&entity=song&limit=25") else {
+            completion([])
+            return
+        }
+        session.dataTask(with: url) { data, _, _ in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]] else {
+                completion([])
+                return
+            }
+            let ranked = results.compactMap { r -> (Int, String)? in
+                guard let art = r["artworkUrl100"] as? String else { return nil }
+                let s = score(result: r, title: title, artist: artist)
+                return (s, art)
+            }.sorted { $0.0 > $1.0 }
+            var seen = Set<String>()
+            let urls: [URL] = ranked.compactMap { _, art in
+                let s = art.replacingOccurrences(of: "100x100", with: "600x600")
+                if seen.contains(s) { return nil }
+                seen.insert(s)
+                return URL(string: s)
+            }
+            completion(urls)
+        }.resume()
+    }
+    
     private static func normalize(_ s: String) -> String {
         let filtered = s.components(separatedBy: CharacterSet.alphanumerics.union(.whitespaces).inverted).joined()
         let lowered = filtered.lowercased()

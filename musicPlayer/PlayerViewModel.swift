@@ -634,6 +634,35 @@ final class PlayerViewModel: ObservableObject {
         }
     }
     
+    func replaceCurrentArtwork(with data: Data) {
+        guard let pid = currentPlaylistId, let idx = currentIndex else { return }
+        guard let plIndex = playlists.firstIndex(where: { $0.id == pid }) else { return }
+        var tracks = playlists[plIndex].tracks
+        guard tracks.indices.contains(idx) else { return }
+        let track = tracks[idx]
+        let jpgURL = track.url.deletingPathExtension().appendingPathExtension("jpg")
+        try? data.write(to: jpgURL)
+        let newTrack = Track(title: track.title, artist: track.artist, url: track.url, artworkData: data, lyrics: track.lyrics)
+        tracks[idx] = newTrack
+        playlists[plIndex].tracks = tracks
+        updateNowPlayingInfo()
+    }
+    
+    func replaceCurrentLyrics(with text: String) {
+        guard let pid = currentPlaylistId, let idx = currentIndex else { return }
+        guard let plIndex = playlists.firstIndex(where: { $0.id == pid }) else { return }
+        var tracks = playlists[plIndex].tracks
+        guard tracks.indices.contains(idx) else { return }
+        let track = tracks[idx]
+        let lrcURL = track.url.deletingPathExtension().appendingPathExtension("lrc")
+        try? text.write(to: lrcURL, atomically: true, encoding: .utf8)
+        let newTrack = Track(title: track.title, artist: track.artist, url: track.url, artworkData: track.artworkData, lyrics: text)
+        tracks[idx] = newTrack
+        playlists[plIndex].tracks = tracks
+        parseCurrentLyrics()
+        updateNowPlayingInfo()
+    }
+    
     private func saveLyrics(_ lyrics: String, for track: Track, playlistId: UUID, index: Int) {
         // Save to .lrc file
         let lrcURL = track.url.deletingPathExtension().appendingPathExtension("lrc")

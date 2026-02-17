@@ -17,6 +17,12 @@ struct ContentView: View {
     @StateObject private var vm = PlayerViewModel()
     @State private var showImporter = false
     @State private var isSidebarVisible = false
+    @State private var showArtworkPicker = false
+    @State private var artworkCandidates: [URL] = []
+    @State private var isLoadingArtworkCandidates = false
+    @State private var showLyricPicker = false
+    @State private var lyricCandidates: [String] = []
+    @State private var isLoadingLyricCandidates = false
 
     var body: some View {
         Group {
@@ -78,29 +84,152 @@ struct ContentView: View {
                 showImporter = false
             }
         }
+        .sheet(isPresented: $showArtworkPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("选择封面").font(.title3).fontWeight(.semibold)
+                    Spacer()
+                    Button("关闭") { showArtworkPicker = false }
+                }
+                if isLoadingArtworkCandidates {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if artworkCandidates.isEmpty {
+                    Text("未找到候选封面").foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        let cols = [GridItem(.adaptive(minimum: 90), spacing: 10)]
+                        LazyVGrid(columns: cols, spacing: 12) {
+                            ForEach(artworkCandidates, id: \.self) { url in
+                                AsyncImage(url: url) { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 90, height: 90)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        .onTapGesture {
+                                            Task {
+                                                if let data = try? Data(contentsOf: url), let _ = UIImage(data: data) {
+                                                    vm.replaceCurrentArtwork(with: data)
+                                                    showArtworkPicker = false
+                                                }
+                                            }
+                                        }
+                                } placeholder: {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1))
+                                        ProgressView()
+                                    }
+                                    .frame(width: 90, height: 90)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    }
+                    .frame(maxWidth: 360)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: 360)
+            .presentationDetents([.medium])
+            .onAppear {
+                guard let track = vm.currentTrack else { return }
+                isLoadingArtworkCandidates = true
+                AlbumArtFetcher.candidates(for: track.title, artist: track.artist) { urls in
+                    DispatchQueue.main.async {
+                        self.artworkCandidates = urls
+                        self.isLoadingArtworkCandidates = false
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showLyricPicker) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("选择歌词").font(.title3).fontWeight(.semibold)
+                    Spacer()
+                    Button("关闭") { showLyricPicker = false }
+                }
+                if isLoadingLyricCandidates {
+                    ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if lyricCandidates.isEmpty {
+                    Text("未找到候选歌词").foregroundStyle(.secondary)
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(Array(lyricCandidates.enumerated()), id: \.offset) { idx, text in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    let preview = text.components(separatedBy: .newlines).prefix(4).joined(separator: "\n")
+                                    Text(preview)
+                                        .font(.system(.body, design: .monospaced))
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .padding(10)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(Color.gray.opacity(0.1)))
+                                .onTapGesture {
+                                    vm.replaceCurrentLyrics(with: text)
+                                    showLyricPicker = false
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .frame(maxWidth: 420)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: 420)
+            .presentationDetents([.medium])
+            .onAppear {
+                guard let track = vm.currentTrack else { return }
+                isLoadingLyricCandidates = true
+                LyricFetcher.candidates(for: track.title, artist: track.artist) { arr in
+                    DispatchQueue.main.async {
+                        self.lyricCandidates = arr
+                        self.isLoadingLyricCandidates = false
+                    }
+                }
+            }
+        }
     }
 
     private var playerView: some View {
         GeometryReader { geo in
             VStack(spacing: 16) {
-                if let data = vm.currentTrack?.artworkData, let image = UIImage(data: data) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: min(geo.size.width, 420))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                } else {
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .overlay(
-                            Image(systemName: "music.note")
-                                .resizable()
-                                .scaledToFit()
-                                .foregroundStyle(.secondary)
-                                .padding(40)
-                        )
-                        .frame(height: min(geo.size.width, 420))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                ZStack(alignment: .topTrailing) {
+                    if let data = vm.currentTrack?.artworkData, let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(height: min(geo.size.width, 420) * 0.75)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    } else {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .overlay(
+                                Image(systemName: "music.note")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .foregroundStyle(.secondary)
+                                    .padding(40)
+                            )
+                            .frame(height: min(geo.size.width, 420) * 0.75)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                    }
+                    Button {
+                        if vm.currentTrack != nil {
+                            artworkCandidates = []
+                            isLoadingArtworkCandidates = true
+                            showArtworkPicker = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title2)
+                            .foregroundStyle(.primary)
+                            .padding(8)
+                            .background(.thinMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(vm.currentTrack?.title ?? "未选择曲目")
@@ -154,6 +283,17 @@ struct ContentView: View {
                         Image(systemName: "forward.fill")
                             .font(.title2)
                     }
+                    Button {
+                        if vm.currentTrack != nil {
+                            lyricCandidates = []
+                            isLoadingLyricCandidates = true
+                            showLyricPicker = true
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.title2)
+                    }
+                    .buttonStyle(.plain)
                     
                     // Spacer for symmetry if needed, or just leave it
                     Button {
