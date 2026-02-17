@@ -52,9 +52,15 @@ struct ContentView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 8))
                                         .onTapGesture {
                                             Task {
-                                                if let data = try? Data(contentsOf: url), let _ = NSImage(data: data) {
-                                                    vm.replaceCurrentArtwork(with: data)
-                                                    showArtworkPicker = false
+                                                do {
+                                                    let (data, _) = try await URLSession.shared.data(from: url)
+                                                    if let _ = NSImage(data: data) {
+                                                        await MainActor.run {
+                                                            vm.replaceCurrentArtwork(with: data)
+                                                            showArtworkPicker = false
+                                                        }
+                                                    }
+                                                } catch {
                                                 }
                                             }
                                         }

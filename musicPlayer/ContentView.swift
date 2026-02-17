@@ -108,9 +108,15 @@ struct ContentView: View {
                                         .clipShape(RoundedRectangle(cornerRadius: 8))
                                         .onTapGesture {
                                             Task {
-                                                if let data = try? Data(contentsOf: url), let _ = UIImage(data: data) {
-                                                    vm.replaceCurrentArtwork(with: data)
-                                                    showArtworkPicker = false
+                                                do {
+                                                    let (data, _) = try await URLSession.shared.data(from: url)
+                                                    if let _ = UIImage(data: data) {
+                                                        await MainActor.run {
+                                                            vm.replaceCurrentArtwork(with: data)
+                                                            showArtworkPicker = false
+                                                        }
+                                                    }
+                                                } catch {
                                                 }
                                             }
                                         }
@@ -246,6 +252,7 @@ struct ContentView: View {
                     }, set: { v in
                         vm.seek(to: v)
                     }), in: 0...(vm.duration > 0 ? vm.duration : 1))
+                    .frame(width: min(geo.size.width * 0.92, 700))
                     HStack {
                         Text(formatTime(vm.currentTime))
                             .font(.caption)
@@ -255,8 +262,10 @@ struct ContentView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .frame(width: min(geo.size.width * 0.92, 700))
                 }
-                HStack(spacing: 40) {
+                .frame(maxWidth: .infinity, alignment: .center)
+                HStack(spacing: 28) {
                     Button {
                         vm.playbackMode = (vm.playbackMode == .sequential) ? .shuffle : .sequential
                     } label: {
@@ -294,16 +303,8 @@ struct ContentView: View {
                             .font(.title2)
                     }
                     .buttonStyle(.plain)
-                    
-                    // Spacer for symmetry if needed, or just leave it
-                    Button {
-                        // Placeholder for symmetry or repeat mode later
-                    } label: {
-                        Image(systemName: "repeat")
-                            .font(.title3)
-                            .opacity(0) // Hidden for now to maintain layout balance or use Spacer
-                    }
                 }
+                .frame(width: min(geo.size.width * 0.92, 700), alignment: .center)
                 .padding(.top, 4)
                 
                 // Lyrics View
@@ -338,10 +339,11 @@ struct ContentView: View {
                                 }
                             }
                         }
-                        .frame(maxWidth: .infinity, maxHeight: 160)
+                        .frame(width: min(geo.size.width * 0.92, 700), height: 160)
                         .padding(.horizontal, 12)
                         .background(Color.gray.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(maxWidth: .infinity, alignment: .center)
                     } else {
                         // Unsynchronized Lyrics (Legacy Text)
                         ScrollView {
@@ -352,10 +354,11 @@ struct ContentView: View {
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 20) // Added padding to prevent clipping
                         }
-                        .frame(maxWidth: .infinity, maxHeight: 160)
+                        .frame(width: min(geo.size.width * 0.92, 700), height: 160)
                         .padding(.horizontal, 4)
                         .background(Color.gray.opacity(0.08))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
             }

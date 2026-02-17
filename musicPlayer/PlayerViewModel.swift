@@ -44,6 +44,7 @@ extension String {
     }
 }
 
+@MainActor
 final class PlayerViewModel: ObservableObject {
     @Published var playlists: [Playlist] = []
     @Published var currentPlaylistId: UUID?

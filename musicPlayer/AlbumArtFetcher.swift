@@ -3,7 +3,12 @@ import Combine
 import UIKit
 
 class AlbumArtFetcher {
-    private static let session = URLSession.shared
+    private static let session: URLSession = {
+        let cfg = URLSessionConfiguration.default
+        cfg.timeoutIntervalForRequest = 15
+        cfg.timeoutIntervalForResource = 30
+        return URLSession(configuration: cfg)
+    }()
     
     static func fetch(for title: String, artist: String, completion: @escaping (Data?) -> Void) {
         let term = "\(title) \(artist)"

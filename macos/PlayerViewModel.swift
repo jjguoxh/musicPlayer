@@ -81,6 +81,7 @@ private func parseFilename(_ url: URL) -> (artist: String?, title: String?) {
     return (artist: nil, title: base)
 }
 
+@MainActor
 final class PlayerViewModel: ObservableObject {
     @Published var playlists: [Playlist] = []
     @Published var currentPlaylistId: UUID?
