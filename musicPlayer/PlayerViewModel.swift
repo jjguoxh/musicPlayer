@@ -211,8 +211,8 @@ final class PlayerViewModel: ObservableObject {
             }
         }
         
-        // If no embedded artwork, check for sidecar .jpg file
-        if artworkData == nil {
+        // Prefer sidecar .jpg artwork if present (user-selected override)
+        do {
             let jpgURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let data = try? Data(contentsOf: jpgURL) {
                 artworkData = data

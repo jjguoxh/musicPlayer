@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var showLyricPicker = false
     @State private var lyricCandidates: [String] = []
     @State private var isLoadingLyricCandidates = false
+    @State private var showImportResult = false
+    @State private var importMessage: String = ""
 
     var body: some View {
         Group {
@@ -195,6 +197,25 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+        .onChange(of: vm.lastImportStage) { s in
+            if s == "success" {
+                importMessage = "导入成功"
+                showImportResult = true
+            } else if s == "failed" {
+                importMessage = "导入失败"
+                showImportResult = true
+            }
+        }
+        .onChange(of: vm.lastImportError) { e in
+            guard let e = e, !e.isEmpty else { return }
+            importMessage = "导入失败：\(e)"
+            showImportResult = true
+        }
+        .alert("导入结果", isPresented: $showImportResult) {
+            Button("确定") { showImportResult = false }
+        } message: {
+            Text(importMessage)
         }
     }
 

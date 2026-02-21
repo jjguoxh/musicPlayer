@@ -400,7 +400,8 @@ final class PlayerViewModel: ObservableObject {
                 lyrics = s
             }
         }
-        if artworkData == nil {
+        // Prefer sidecar .jpg artwork if present (user-selected override)
+        do {
             let jpgURL = url.deletingPathExtension().appendingPathExtension("jpg")
             if let data = try? Data(contentsOf: jpgURL) { artworkData = data }
         }
