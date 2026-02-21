@@ -98,6 +98,7 @@ final class PlayerViewModel: ObservableObject {
         }
         
         loadLibrary()
+        restoreLastPlayed()
     }
 
     private func setupNotifications() {
@@ -257,6 +258,7 @@ final class PlayerViewModel: ObservableObject {
         updateDurationIfAvailable()
         updateNowPlayingInfo()
         parseCurrentLyrics()
+        rememberLastPlayed(url: pl.tracks[index].url)
         
         // If lyrics are missing or appear to be incorrect (e.g. Pinyin for Chinese song), try to fetch them
         let track = pl.tracks[index]
@@ -271,6 +273,17 @@ final class PlayerViewModel: ObservableObject {
         // If artwork is missing, try to fetch it
         if track.artworkData == nil {
             fetchArtwork(for: track, playlistId: pl.id, index: index)
+        }
+    }
+    
+    private func rememberLastPlayed(url: URL) {
+        UserDefaults.standard.set(url.path, forKey: "lastPlayedURL")
+    }
+    
+    private func restoreLastPlayed() {
+        guard let path = UserDefaults.standard.string(forKey: "lastPlayedURL"), let pl = currentPlaylist else { return }
+        if let idx = pl.tracks.firstIndex(where: { $0.url.path == path }) {
+            play(index: idx)
         }
     }
 

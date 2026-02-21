@@ -1,0 +1,7 @@
+pygame
+mutagen
+Pillow
+requests
+pydub
+imageio-ffmpeg
+audioop-lts

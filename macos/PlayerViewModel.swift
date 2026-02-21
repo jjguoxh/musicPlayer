@@ -106,6 +106,7 @@ final class PlayerViewModel: ObservableObject {
         addTimeObserver()
         loadLibrary()
         player.volume = volume
+        restoreLastPlayed()
     }
     
     deinit {
@@ -147,6 +148,7 @@ final class PlayerViewModel: ObservableObject {
         player.play()
         isPlaying = true
         parseCurrentLyrics()
+        rememberLastPlayed(url: pl.tracks[index].url)
         
         let track = pl.tracks[index]
         let currentLyrics = track.lyrics ?? ""
@@ -155,6 +157,17 @@ final class PlayerViewModel: ObservableObject {
         }
         if track.artworkData == nil {
             fetchArtwork(for: track, playlistId: pl.id, index: index)
+        }
+    }
+    
+    private func rememberLastPlayed(url: URL) {
+        UserDefaults.standard.set(url.path, forKey: "lastPlayedURL")
+    }
+    
+    private func restoreLastPlayed() {
+        guard let path = UserDefaults.standard.string(forKey: "lastPlayedURL"), let pl = currentPlaylist else { return }
+        if let idx = pl.tracks.firstIndex(where: { $0.url.path == path }) {
+            play(index: idx)
         }
     }
     
